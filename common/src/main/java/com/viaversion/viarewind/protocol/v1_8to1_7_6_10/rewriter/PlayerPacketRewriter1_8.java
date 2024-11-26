@@ -36,6 +36,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.exception.InformativeException;
 import com.viaversion.viaversion.libs.gson.JsonElement;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.ListTag;
@@ -122,7 +123,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 						return;
 					}
 					// 1.8 clients do keep entity data after respawn, 1.7 clients don't
-					final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets1_7_2_5.SET_ENTITY_DATA, wrapper.user());
+					final PacketWrapper setEntityData = PacketWrapper.create(ClientboundPackets1_7_2_5.SET_ENTITY_DATA,
+							wrapper.user());
 					setEntityData.write(Types.VAR_INT, tracker.clientEntityId());
 					setEntityData.write(Types1_7_6_10.ENTITY_DATA_LIST, tracker.getEntityData());
 					setEntityData.send(Protocol1_8To1_7_6_10.class);
@@ -150,17 +152,22 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					final int flags = wrapper.read(Types.BYTE);
 
 					// x, y, and z
-					if ((flags & 0x01) == 0x01) wrapper.set(Types.DOUBLE, 0, x + playerSession.getPosX());
-					if ((flags & 0x02) == 0x02) y += playerSession.getPosY();
+					if ((flags & 0x01) == 0x01)
+						wrapper.set(Types.DOUBLE, 0, x + playerSession.getPosX());
+					if ((flags & 0x02) == 0x02)
+						y += playerSession.getPosY();
 
 					playerSession.receivedPosY = y;
 					wrapper.set(Types.DOUBLE, 1, y + 1.62F);
 
-					if ((flags & 0x04) == 0x04) wrapper.set(Types.DOUBLE, 2, z + playerSession.getPosZ());
+					if ((flags & 0x04) == 0x04)
+						wrapper.set(Types.DOUBLE, 2, z + playerSession.getPosZ());
 
 					// yaw and pitch
-					if ((flags & 0x08) == 0x08) wrapper.set(Types.FLOAT, 0, yaw + playerSession.yaw);
-					if ((flags & 0x10) == 0x10) wrapper.set(Types.FLOAT, 1, pitch + playerSession.pitch);
+					if ((flags & 0x08) == 0x08)
+						wrapper.set(Types.FLOAT, 0, yaw + playerSession.yaw);
+					if ((flags & 0x10) == 0x10)
+						wrapper.set(Types.FLOAT, 1, pitch + playerSession.pitch);
 
 					wrapper.write(Types.BOOLEAN, playerSession.onGround);
 
@@ -187,7 +194,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 				map(Types.UNSIGNED_BYTE); // Reason
 				map(Types.FLOAT); // Value
 				handler(wrapper -> {
-					if (wrapper.get(Types.UNSIGNED_BYTE, 0) != 3) return; // Change game mode
+					if (wrapper.get(Types.UNSIGNED_BYTE, 0) != 3)
+						return; // Change game mode
 					int gameMode = wrapper.get(Types.FLOAT, 0).intValue();
 
 					final EntityTracker1_8 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_7_6_10.class);
@@ -195,16 +203,19 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 						UUID myId = wrapper.user().getProtocolInfo().getUuid();
 						Item[] equipment = new Item[4];
 						if (gameMode == 3) {
-							GameProfileStorage.GameProfile profile = wrapper.user().get(GameProfileStorage.class).get(myId);
+							GameProfileStorage.GameProfile profile = wrapper.user().get(GameProfileStorage.class)
+									.get(myId);
 							equipment[3] = profile == null ? null : profile.getSkull();
 						} else {
 							for (int i = 0; i < equipment.length; i++) {
-								equipment[i] = wrapper.user().get(PlayerSessionStorage.class).getPlayerEquipment(myId, i);
+								equipment[i] = wrapper.user().get(PlayerSessionStorage.class).getPlayerEquipment(myId,
+										i);
 							}
 						}
 
 						for (int i = 0; i < equipment.length; i++) {
-							PacketWrapper setSlot = PacketWrapper.create(ClientboundPackets1_7_2_5.CONTAINER_SET_SLOT, wrapper.user());
+							PacketWrapper setSlot = PacketWrapper.create(ClientboundPackets1_7_2_5.CONTAINER_SET_SLOT,
+									wrapper.user());
 							setSlot.write(Types.BYTE, (byte) 0);
 							setSlot.write(Types.SHORT, (short) (8 - i));
 							setSlot.write(RewindTypes.COMPRESSED_NBT_ITEM, equipment[i]);
@@ -234,121 +245,138 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 			final int action = wrapper.read(Types.VAR_INT);
 			final int count = wrapper.read(Types.VAR_INT);
 			for (int i = 0; i < count; i++) {
-				UUID uuid = wrapper.read(Types.UUID);
-				if (action == 0) {
-					String name = wrapper.read(Types.STRING);
+				try {
+					UUID uuid = wrapper.read(Types.UUID);
+					if (action == 0) {
+						String name = wrapper.read(Types.STRING);
 
-					GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
-					if (gameProfile == null) gameProfile = gameProfileStorage.put(uuid, name);
+						GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
+						if (gameProfile == null)
+							gameProfile = gameProfileStorage.put(uuid, name);
 
-					int propertyCount = wrapper.read(Types.VAR_INT);
-					while (propertyCount-- > 0) {
-						String propertyName = wrapper.read(Types.STRING);
-						String propertyValue = wrapper.read(Types.STRING);
-						String propertySignature = wrapper.read(Types.OPTIONAL_STRING);
-						gameProfile.properties.add(new GameProfileStorage.Property(propertyName, propertyValue, propertySignature));
-					}
+						int propertyCount = wrapper.read(Types.VAR_INT);
+						while (propertyCount-- > 0) {
+							String propertyName = wrapper.read(Types.STRING);
+							String propertyValue = wrapper.read(Types.STRING);
+							String propertySignature = wrapper.read(Types.OPTIONAL_STRING);
+							gameProfile.properties.add(
+									new GameProfileStorage.Property(propertyName, propertyValue, propertySignature));
+						}
 
-					int gamemode = wrapper.read(Types.VAR_INT);
-					int ping = wrapper.read(Types.VAR_INT);
-					gameProfile.ping = ping;
-					gameProfile.gamemode = gamemode;
-					JsonElement displayName = wrapper.read(Types.OPTIONAL_COMPONENT);
-					if (displayName != null) {
-						gameProfile.setDisplayName(ChatUtil.jsonToLegacy(displayName));
-					}
+						int gamemode = wrapper.read(Types.VAR_INT);
+						int ping = wrapper.read(Types.VAR_INT);
+						gameProfile.ping = ping;
+						gameProfile.gamemode = gamemode;
+						JsonElement displayName = wrapper.read(Types.OPTIONAL_COMPONENT);
+						if (displayName != null) {
+							gameProfile.setDisplayName(ChatUtil.jsonToLegacy(displayName));
+						}
 
-					final PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					playerInfo.write(Types.STRING, gameProfile.getDisplayName());
-					playerInfo.write(Types.BOOLEAN, true);
-					playerInfo.write(Types.SHORT, (short) ping);
-					playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
-				} else if (action == 1) {
-					final int gamemode = wrapper.read(Types.VAR_INT);
-					GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
-					if (gameProfile == null || gameProfile.gamemode == gamemode) {
-						continue;
-					}
+						final PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO,
+								wrapper.user());
+						playerInfo.write(Types.STRING, gameProfile.getDisplayName());
+						playerInfo.write(Types.BOOLEAN, true);
+						playerInfo.write(Types.SHORT, (short) ping);
+						playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
+					} else if (action == 1) {
+						final int gamemode = wrapper.read(Types.VAR_INT);
+						GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
+						if (gameProfile == null || gameProfile.gamemode == gamemode) {
+							continue;
+						}
 
-					if (gamemode == 3 || gameProfile.gamemode == 3) {
-						EntityTracker1_8 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_7_6_10.class);
-						int entityId = tracker.getPlayerEntityId(uuid);
-						boolean isOwnPlayer = entityId == tracker.clientEntityId();
-						if (entityId != -1) {
-							// Weirdly, PlayerEntity has only 4 slots instead of 5
-							Item[] equipment = new Item[isOwnPlayer ? 4 : 5];
-							if (gamemode == 3) {
-								equipment[isOwnPlayer ? 3 : 4] = gameProfile.getSkull();
-							} else {
-								for (int j = 0; j < equipment.length; j++) {
-									equipment[j] = wrapper.user().get(PlayerSessionStorage.class).getPlayerEquipment(uuid, j);
+						if (gamemode == 3 || gameProfile.gamemode == 3) {
+							EntityTracker1_8 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_7_6_10.class);
+							int entityId = tracker.getPlayerEntityId(uuid);
+							boolean isOwnPlayer = entityId == tracker.clientEntityId();
+							if (entityId != -1) {
+								// Weirdly, PlayerEntity has only 4 slots instead of 5
+								Item[] equipment = new Item[isOwnPlayer ? 4 : 5];
+								if (gamemode == 3) {
+									equipment[isOwnPlayer ? 3 : 4] = gameProfile.getSkull();
+								} else {
+									for (int j = 0; j < equipment.length; j++) {
+										equipment[j] = wrapper.user().get(PlayerSessionStorage.class)
+												.getPlayerEquipment(uuid, j);
+									}
+								}
+
+								for (short slot = 0; slot < equipment.length; slot++) {
+									final PacketWrapper setEquipment = PacketWrapper
+											.create(ClientboundPackets1_7_2_5.SET_EQUIPPED_ITEM, wrapper.user());
+									setEquipment.write(Types.INT, entityId);
+									setEquipment.write(Types.SHORT, slot);
+									setEquipment.write(RewindTypes.COMPRESSED_NBT_ITEM, equipment[slot]);
+									setEquipment.scheduleSend(Protocol1_8To1_7_6_10.class);
 								}
 							}
-
-							for (short slot = 0; slot < equipment.length; slot++) {
-								final PacketWrapper setEquipment = PacketWrapper.create(ClientboundPackets1_7_2_5.SET_EQUIPPED_ITEM, wrapper.user());
-								setEquipment.write(Types.INT, entityId);
-								setEquipment.write(Types.SHORT, slot);
-								setEquipment.write(RewindTypes.COMPRESSED_NBT_ITEM, equipment[slot]);
-								setEquipment.scheduleSend(Protocol1_8To1_7_6_10.class);
-							}
 						}
+
+						gameProfile.gamemode = gamemode;
+					} else if (action == 2) {
+						final int ping = wrapper.read(Types.VAR_INT);
+
+						final GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
+						if (gameProfile == null) {
+							continue;
+						}
+						PacketWrapper packet = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO,
+								wrapper.user());
+						packet.write(Types.STRING, gameProfile.getDisplayName());
+						packet.write(Types.BOOLEAN, false);
+						packet.write(Types.SHORT, (short) gameProfile.ping);
+						packet.scheduleSend(Protocol1_8To1_7_6_10.class);
+
+						gameProfile.ping = ping;
+
+						packet = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
+						packet.write(Types.STRING, gameProfile.getDisplayName());
+						packet.write(Types.BOOLEAN, true);
+						packet.write(Types.SHORT, (short) ping);
+						packet.scheduleSend(Protocol1_8To1_7_6_10.class);
+					} else if (action == 3) {
+						JsonElement displayNameComponent = wrapper.read(Types.OPTIONAL_COMPONENT);
+						String displayName = displayNameComponent != null ? ChatUtil.jsonToLegacy(displayNameComponent)
+								: null;
+
+						GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
+						if (gameProfile == null || gameProfile.displayName == null && displayName == null)
+							continue;
+
+						PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO,
+								wrapper.user());
+						playerInfo.write(Types.STRING, gameProfile.getDisplayName());
+						playerInfo.write(Types.BOOLEAN, false);
+						playerInfo.write(Types.SHORT, (short) gameProfile.ping);
+						playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
+
+						if (gameProfile.displayName == null && displayName != null
+								|| gameProfile.displayName != null && displayName == null
+								|| !gameProfile.displayName.equals(displayName)) {
+							gameProfile.setDisplayName(displayName);
+						}
+
+						playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
+						playerInfo.write(Types.STRING, gameProfile.getDisplayName());
+						playerInfo.write(Types.BOOLEAN, true);
+						playerInfo.write(Types.SHORT, (short) gameProfile.ping);
+						playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
+					} else if (action == 4) {
+						final GameProfileStorage.GameProfile gameProfile = gameProfileStorage.remove(uuid);
+						if (gameProfile == null) {
+							continue;
+						}
+
+						final PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO,
+								wrapper.user());
+						playerInfo.write(Types.STRING, gameProfile.getDisplayName());
+						playerInfo.write(Types.BOOLEAN, false);
+						playerInfo.write(Types.SHORT, (short) gameProfile.ping);
+						playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
 					}
-
-					gameProfile.gamemode = gamemode;
-				} else if (action == 2) {
-					final int ping = wrapper.read(Types.VAR_INT);
-
-					final GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
-					if (gameProfile == null) {
-						continue;
-					}
-					PacketWrapper packet = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					packet.write(Types.STRING, gameProfile.getDisplayName());
-					packet.write(Types.BOOLEAN, false);
-					packet.write(Types.SHORT, (short) gameProfile.ping);
-					packet.scheduleSend(Protocol1_8To1_7_6_10.class);
-
-					gameProfile.ping = ping;
-
-					packet = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					packet.write(Types.STRING, gameProfile.getDisplayName());
-					packet.write(Types.BOOLEAN, true);
-					packet.write(Types.SHORT, (short) ping);
-					packet.scheduleSend(Protocol1_8To1_7_6_10.class);
-				} else if (action == 3) {
-					JsonElement displayNameComponent = wrapper.read(Types.OPTIONAL_COMPONENT);
-					String displayName = displayNameComponent != null ? ChatUtil.jsonToLegacy(displayNameComponent) : null;
-
-					GameProfileStorage.GameProfile gameProfile = gameProfileStorage.get(uuid);
-					if (gameProfile == null || gameProfile.displayName == null && displayName == null) continue;
-
-					PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					playerInfo.write(Types.STRING, gameProfile.getDisplayName());
-					playerInfo.write(Types.BOOLEAN, false);
-					playerInfo.write(Types.SHORT, (short) gameProfile.ping);
-					playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
-
-					if (gameProfile.displayName == null && displayName != null || gameProfile.displayName != null && displayName == null || !gameProfile.displayName.equals(displayName)) {
-						gameProfile.setDisplayName(displayName);
-					}
-
-					playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					playerInfo.write(Types.STRING, gameProfile.getDisplayName());
-					playerInfo.write(Types.BOOLEAN, true);
-					playerInfo.write(Types.SHORT, (short) gameProfile.ping);
-					playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
-				} else if (action == 4) {
-					final GameProfileStorage.GameProfile gameProfile = gameProfileStorage.remove(uuid);
-					if (gameProfile == null) {
-						continue;
-					}
-
-					final PacketWrapper playerInfo = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_INFO, wrapper.user());
-					playerInfo.write(Types.STRING, gameProfile.getDisplayName());
-					playerInfo.write(Types.BOOLEAN, false);
-					playerInfo.write(Types.SHORT, (short) gameProfile.ping);
-					playerInfo.scheduleSend(Protocol1_8To1_7_6_10.class);
+				} catch (InformativeException e) {
+					e.printStackTrace();
+					break;
 				}
 			}
 		});
@@ -383,15 +411,18 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 
 						int size = wrapper.passthrough(Types.UNSIGNED_BYTE);
 						for (int i = 0; i < size; i++) {
-							Item item = protocol.getItemRewriter().handleItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_8));
+							Item item = protocol.getItemRewriter().handleItemToClient(wrapper.user(),
+									wrapper.read(Types.ITEM1_8));
 							wrapper.write(RewindTypes.COMPRESSED_NBT_ITEM, item); // Buy item 1
 
-							item = protocol.getItemRewriter().handleItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_8));
+							item = protocol.getItemRewriter().handleItemToClient(wrapper.user(),
+									wrapper.read(Types.ITEM1_8));
 							wrapper.write(RewindTypes.COMPRESSED_NBT_ITEM, item); // Buy item 3
 
 							boolean has3Items = wrapper.passthrough(Types.BOOLEAN);
 							if (has3Items) {
-								item = protocol.getItemRewriter().handleItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_8));
+								item = protocol.getItemRewriter().handleItemToClient(wrapper.user(),
+										wrapper.read(Types.ITEM1_8));
 								wrapper.write(RewindTypes.COMPRESSED_NBT_ITEM, item); // Buy item 2
 							}
 
@@ -400,7 +431,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 							wrapper.read(Types.INT); // Max uses
 						}
 					} else if (channel.equals("MC|Brand")) {
-						wrapper.write(Types.REMAINING_BYTES, wrapper.read(Types.STRING).getBytes(StandardCharsets.UTF_8));
+						wrapper.write(Types.REMAINING_BYTES,
+								wrapper.read(Types.STRING).getBytes(StandardCharsets.UTF_8));
 					}
 
 					wrapper.setPacketType(null);
@@ -408,7 +440,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					wrapper.writeToBuffer(data);
 
 					// Write new packet to append length
-					final PacketWrapper packet = PacketWrapper.create(ClientboundPackets1_7_2_5.CUSTOM_PAYLOAD, data, wrapper.user());
+					final PacketWrapper packet = PacketWrapper.create(ClientboundPackets1_7_2_5.CUSTOM_PAYLOAD, data,
+							wrapper.user());
 					packet.passthrough(Types.STRING);
 					if (data.readableBytes() <= Short.MAX_VALUE) {
 						packet.write(Types.SHORT, (short) data.readableBytes());
@@ -447,7 +480,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 							provider.setSubTitle(uuid, wrapper.read(Types.STRING));
 							break;
 						case 2:
-							provider.setTimings(uuid, wrapper.read(Types.INT), wrapper.read(Types.INT), wrapper.read(Types.INT));
+							provider.setTimings(uuid, wrapper.read(Types.INT), wrapper.read(Types.INT),
+									wrapper.read(Types.INT));
 							break;
 						case 3:
 							provider.clear(uuid);
@@ -463,23 +497,24 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 		protocol.cancelClientbound(ClientboundPackets1_8.TAB_LIST);
 		protocol.cancelClientbound(ClientboundPackets1_8.PLAYER_COMBAT);
 
-		protocol.registerClientbound(ClientboundPackets1_8.RESOURCE_PACK, ClientboundPackets1_7_2_5.CUSTOM_PAYLOAD, new PacketHandlers() {
-			@Override
-			public void register() {
-				create(Types.STRING, "MC|RPack");
-				handler(wrapper -> {
-					final ByteBuf buf = ByteBufAllocator.DEFAULT.buffer();
-					try {
-						// Url
-						Types.STRING.write(buf, wrapper.read(Types.STRING));
-						wrapper.write(Types.SHORT_BYTE_ARRAY, Types.REMAINING_BYTES.read(buf));
-					} finally {
-						buf.release();
+		protocol.registerClientbound(ClientboundPackets1_8.RESOURCE_PACK, ClientboundPackets1_7_2_5.CUSTOM_PAYLOAD,
+				new PacketHandlers() {
+					@Override
+					public void register() {
+						create(Types.STRING, "MC|RPack");
+						handler(wrapper -> {
+							final ByteBuf buf = ByteBufAllocator.DEFAULT.buffer();
+							try {
+								// Url
+								Types.STRING.write(buf, wrapper.read(Types.STRING));
+								wrapper.write(Types.SHORT_BYTE_ARRAY, Types.REMAINING_BYTES.read(buf));
+							} finally {
+								buf.release();
+							}
+						});
+						read(Types.STRING); // Hash
 					}
 				});
-				read(Types.STRING); // Hash
-			}
-		});
 
 		protocol.registerServerbound(ServerboundPackets1_7_2_5.CHAT, wrapper -> {
 			final String message = wrapper.passthrough(Types.STRING);
@@ -492,7 +527,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 				if (profile != null && profile.uuid != null) {
 					wrapper.cancel();
 
-					final PacketWrapper teleport = PacketWrapper.create(ClientboundPackets1_7_2_5.TELEPORT_ENTITY, wrapper.user());
+					final PacketWrapper teleport = PacketWrapper.create(ClientboundPackets1_7_2_5.TELEPORT_ENTITY,
+							wrapper.user());
 					teleport.write(Types.UUID, profile.uuid);
 					teleport.send(Protocol1_8To1_7_6_10.class);
 				}
@@ -522,7 +558,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					double yaw = Math.toRadians(position.yaw);
 					double pitch = Math.toRadians(position.pitch);
 
-					Vector3d dir = new Vector3d(-Math.cos(pitch) * Math.sin(yaw), -Math.sin(pitch), Math.cos(pitch) * Math.cos(yaw));
+					Vector3d dir = new Vector3d(-Math.cos(pitch) * Math.sin(yaw), -Math.sin(pitch),
+							Math.cos(pitch) * Math.cos(yaw));
 					Ray3d ray = new Ray3d(pos, dir);
 					Vector3d intersection = RayTracing.trace(ray, boundingBox, 5.0);
 
@@ -543,7 +580,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 			@Override
 			public void register() {
 				map(Types.BOOLEAN); // On ground
-				handler(wrapper -> wrapper.user().get(PlayerSessionStorage.class).onGround = wrapper.get(Types.BOOLEAN, 0));
+				handler(wrapper -> wrapper.user().get(PlayerSessionStorage.class).onGround = wrapper.get(Types.BOOLEAN,
+						0));
 			}
 		});
 
@@ -593,7 +631,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 				map(Types.BYTE); // Direction
 				map(RewindTypes.COMPRESSED_NBT_ITEM, Types.ITEM1_8); // Item
 
-				handler(wrapper -> protocol.getItemRewriter().handleItemToServer(wrapper.user(), wrapper.get(Types.ITEM1_8, 0)));
+				handler(wrapper -> protocol.getItemRewriter().handleItemToServer(wrapper.user(),
+						wrapper.get(Types.ITEM1_8, 0)));
 			}
 		});
 
@@ -639,7 +678,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 						final PlayerSessionStorage storage = wrapper.user().get(PlayerSessionStorage.class);
 						storage.sprinting = action == 3;
 
-						final PacketWrapper abilities = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_ABILITIES, wrapper.user());
+						final PacketWrapper abilities = PacketWrapper.create(ClientboundPackets1_7_2_5.PLAYER_ABILITIES,
+								wrapper.user());
 						abilities.write(Types.BYTE, storage.combineAbilities());
 						abilities.write(Types.FLOAT, storage.sprinting ? storage.flySpeed * 2.0f : storage.flySpeed);
 						abilities.write(Types.FLOAT, storage.walkSpeed);
@@ -658,8 +698,10 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					final boolean jump = wrapper.read(Types.BOOLEAN);
 					final boolean unmount = wrapper.read(Types.BOOLEAN);
 					short flags = 0;
-					if (jump) flags += 0x01;
-					if (unmount) flags += 0x02;
+					if (jump)
+						flags += 0x01;
+					if (unmount)
+						flags += 0x02;
 					wrapper.write(Types.UNSIGNED_BYTE, flags);
 
 					if (!unmount) {
@@ -667,7 +709,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					}
 					final EntityTracker1_8 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_7_6_10.class);
 					if (tracker.spectatingClientEntityId != tracker.clientEntityId()) {
-						PacketWrapper sneakPacket = PacketWrapper.create(ServerboundPackets1_8.PLAYER_COMMAND, wrapper.user());
+						PacketWrapper sneakPacket = PacketWrapper.create(ServerboundPackets1_8.PLAYER_COMMAND,
+								wrapper.user());
 						sneakPacket.write(Types.VAR_INT, tracker.clientEntityId());
 						sneakPacket.write(Types.VAR_INT, 0); // Start sneaking
 						sneakPacket.write(Types.VAR_INT, 0); // Action parameter
@@ -720,7 +763,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 					final GameProfileStorage storage = wrapper.user().get(GameProfileStorage.class);
 					final List<GameProfileStorage.GameProfile> profiles = storage.getAllWithPrefix(prefix, true);
 
-					final PacketWrapper commandSuggestions = PacketWrapper.create(ClientboundPackets1_7_2_5.COMMAND_SUGGESTIONS, wrapper.user());
+					final PacketWrapper commandSuggestions = PacketWrapper
+							.create(ClientboundPackets1_7_2_5.COMMAND_SUGGESTIONS, wrapper.user());
 					commandSuggestions.write(Types.VAR_INT, profiles.size());
 					for (GameProfileStorage.GameProfile profile : profiles) {
 						commandSuggestions.write(Types.STRING, profile.name);
@@ -763,7 +807,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 							wrapper.write(Types.STRING, new String(data, StandardCharsets.UTF_8));
 
 							final InventoryTracker tracker = wrapper.user().get(InventoryTracker.class);
-							final PacketWrapper updateCost = PacketWrapper.create(ClientboundPackets1_7_2_5.CONTAINER_SET_DATA, wrapper.user());
+							final PacketWrapper updateCost = PacketWrapper
+									.create(ClientboundPackets1_7_2_5.CONTAINER_SET_DATA, wrapper.user());
 							updateCost.write(Types.UNSIGNED_BYTE, tracker.anvilId);
 							updateCost.write(Types.SHORT, (short) 0);
 							updateCost.write(Types.SHORT, tracker.levelCost);
@@ -787,7 +832,8 @@ public class PlayerPacketRewriter1_8 extends RewriterBase<Protocol1_8To1_7_6_10>
 							break;
 						}
 						case "MC|Brand": {
-							wrapper.write(Types.STRING, new String(wrapper.read(Types.REMAINING_BYTES), StandardCharsets.UTF_8));
+							wrapper.write(Types.STRING,
+									new String(wrapper.read(Types.REMAINING_BYTES), StandardCharsets.UTF_8));
 							break;
 						}
 					}
